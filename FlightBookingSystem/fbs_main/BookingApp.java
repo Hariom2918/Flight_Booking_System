@@ -395,9 +395,30 @@ public class BookingApp {
     // ─── Get absolute flights file path ──────────────────────────────────
 
     private static String getFlightsFilePath() {
-        // Use the same directory as the source code for consistent file location
-        String jarDir = System.getProperty("user.dir");
-        return jarDir + File.separator + "flights.txt";
+        try {
+            File classpathRoot = new File(BookingApp.class
+                    .getProtectionDomain()
+                    .getCodeSource()
+                    .getLocation()
+                    .toURI());
+
+            File[] candidates = new File[] {
+                    new File(classpathRoot, "flights.txt"),
+                    new File(new File(System.getProperty("user.dir")), "flights.txt"),
+                    new File(new File(System.getProperty("user.dir"), "FlightBookingSystem"), "flights.txt")
+            };
+
+            for (File candidate : candidates) {
+                if (candidate.exists()) {
+                    return candidate.getAbsolutePath();
+                }
+            }
+
+            return candidates[0].getAbsolutePath();
+        } catch (Exception e) {
+            File workingDir = new File(System.getProperty("user.dir"));
+            return new File(workingDir, "flights.txt").getAbsolutePath();
+        }
     }
 
     // ─── Stats Helper ────────────────────────────────────────────────────
