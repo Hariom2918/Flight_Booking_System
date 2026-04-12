@@ -3,7 +3,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.*;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 import javax.swing.*;
 
@@ -153,22 +152,17 @@ public class BookingApp {
                 return;
             }
 
-            if (role.equals("admin")) {
-                if (validateAdminLogin(userId, password)) {
-                    JOptionPane.showMessageDialog(loginFrame, "Admin Login Successful");
-                    loginFrame.dispose();
+            if (validateLogin(role, userId, password)) {
+                JOptionPane.showMessageDialog(loginFrame,
+                        (role.equals("admin") ? "Admin" : "Passenger") + " Login Successful");
+                loginFrame.dispose();
+                if (role.equals("admin")) {
                     showAdminMenu();
                 } else {
-                    JOptionPane.showMessageDialog(loginFrame, "Invalid Admin Credentials");
+                    showPassengerMenu(userId);
                 }
             } else {
-                if (validatePassengerLogin(userId, password)) {
-                    JOptionPane.showMessageDialog(loginFrame, "Passenger Login Successful");
-                    loginFrame.dispose();
-                    showPassengerMenu(userId);
-                } else {
-                    JOptionPane.showMessageDialog(loginFrame, "Invalid Passenger Credentials");
-                }
+                JOptionPane.showMessageDialog(loginFrame, "Invalid Credentials");
             }
         });
 
@@ -182,35 +176,18 @@ public class BookingApp {
         loginFrame.setVisible(true);
     }
 
-    // ─── Validate Admin Login (with hashed password) ─────────────────────
+    // ─── Validate Login (unified for admin and passenger) ──────────────────
 
-    private static boolean validateAdminLogin(String userId, String password) {
-        try (Connection conn = getConnection()) {
-            String sql = "SELECT * FROM admins WHERE admin_id = ? AND password = ?";
-            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setString(1, userId);
-                stmt.setString(2, hashPassword(password));
-                try (ResultSet rs = stmt.executeQuery()) {
-                    return rs.next();
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return false;
-    }
-
-    // ─── Validate Passenger Login (with hashed password) ─────────────────
-
-    private static boolean validatePassengerLogin(String userId, String password) {
-        try (Connection conn = getConnection()) {
-            String sql = "SELECT * FROM passengers WHERE user_id = ? AND password = ?";
-            try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-                stmt.setString(1, userId);
-                stmt.setString(2, hashPassword(password));
-                try (ResultSet rs = stmt.executeQuery()) {
-                    return rs.next();
-                }
+    private static boolean validateLogin(String role, String userId, String password) {
+        String sql = role.equals("admin")
+                ? "SELECT 1 FROM admins WHERE admin_id = ? AND password = ?"
+                : "SELECT 1 FROM passengers WHERE user_id = ? AND password = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, userId);
+            stmt.setString(2, hashPassword(password));
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next();
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -583,55 +560,3 @@ public class BookingApp {
     }
 }
 
-// ─── FlightData class (separate top-level class in same file) ────────────
-
-class FlightData {
-    private String flightNumber, airline, source, destination;
-    private int availableSeats;
-    private double ticketPrice;
-
-    public FlightData(String flightNumber, String airline, String source, String destination, int availableSeats, double ticketPrice) {
-        this.flightNumber = flightNumber;
-        this.airline = airline;
-        this.source = source;
-        this.destination = destination;
-        this.availableSeats = availableSeats;
-        this.ticketPrice = ticketPrice;
-    }
-
-    public String getFlightNumber() { return flightNumber; }
-    public String getAirline() { return airline; }
-    public String getSource() { return source; }
-    public String getDestination() { return destination; }
-    public int getAvailableSeats() { return availableSeats; }
-    public double getTicketPrice() { return ticketPrice; }
-
-    @Override
-    public String toString() {
-        return flightNumber + " (" + airline + ") " + source + " -> " + destination
-                + " | Seats: " + availableSeats + " | Price: Rs." + ticketPrice;
-    }
-}
-
-// ─── Reservation class (separate top-level class in same file) ───────────
-
-class Reservation {
-    private String bookingId;
-    private String userId;
-    private FlightData flight;
-
-    public Reservation(String userId, FlightData flight) {
-        this.bookingId = UUID.randomUUID().toString();
-        this.userId = userId;
-        this.flight = flight;
-    }
-
-    public String getBookingId() { return bookingId; }
-    public String getUserId() { return userId; }
-    public FlightData getFlight() { return flight; }
-
-    @Override
-    public String toString() {
-        return "Booking ID: " + bookingId + " | User: " + userId + " | " + flight.toString();
-    }
-}
